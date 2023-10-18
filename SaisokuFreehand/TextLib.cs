@@ -776,147 +776,330 @@ namespace TextLib
                 return null;
             }
         }
+        
         public static Encoding GetJpEncoding(byte[] bytes, bool readAll = false)
         {
+            int len = bytes.Length;
+
             //BOM判定
-            var enc = checkBOM(bytes);
-            if (enc != null) return enc;
-
-            //簡易ISO-2022-JP判定
-            if (checkISO_2022_JP(bytes)) return Encoding.GetEncoding(50220);//iso-2022-jp
-
-            //簡易文字コード判定(再変換確認)
-            Encoding enc_sjis = Encoding.GetEncoding(932);//ShiftJIS
-            Encoding enc_euc = Encoding.GetEncoding(51932);//EUC-JP
-            Encoding enc_utf8_check = new UTF8Encoding(false, false);//utf8
-            Encoding enc_utf8 = new UTF8Encoding(false, true);//utf8
-
-            int sjis = checkReconversion(bytes, enc_sjis);
-            int euc = checkReconversion(bytes, enc_euc);
-            int utf8 = checkReconversion(bytes, enc_utf8_check);
-
-            //再変換で同一のものが1個だけの場合
-            if (sjis < 0 && utf8 >= 0 && euc >= 0) return enc_sjis;
-            if (utf8 < 0 && sjis >= 0 && euc >= 0) return enc_utf8;
-            if (euc < 0 && utf8 >= 0 && sjis >= 0) return enc_euc;
-
-            //末尾以外は同一の場合
-            if (utf8 >= bytes.Length - 3 && !readAll) return enc_utf8;
-            if (sjis >= bytes.Length - 1 && !readAll) return enc_sjis;
-            if (euc >= bytes.Length - 1 && !readAll) return enc_euc;
-
-            //同一のものが複数ある場合
-            if (utf8 < 0 && readAll) return enc_utf8;
-            if (sjis < 0 && readAll) return enc_sjis;
-            if (euc < 0 && readAll) return enc_euc;
-
-            return null;
-        }
-
-        //BOM判定
-        private static Encoding checkBOM(byte[] bytes)
-        {
-            if (bytes.Length >= 2)
+            if (len >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff)//UTF-16BE
             {
-                if (bytes[0] == 0xfe && bytes[1] == 0xff)//UTF-16BE
-                {
-                    return Encoding.BigEndianUnicode;
-                }
-                else if (bytes[0] == 0xff && bytes[1] == 0xfe)//UTF-16LE
-                {
-                    return Encoding.Unicode;
-                }
+                return Encoding.BigEndianUnicode;
             }
-            if (bytes.Length >= 3)
+            else if (len >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe)//UTF-16LE
             {
-                if (bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf)//UTF-8
-                {
-                    return new UTF8Encoding(true, true);
-                }
-                else if (bytes[0] == 0x2b && bytes[1] == 0x2f && bytes[2] == 0x76)//UTF-7
-                {
-                    return Encoding.UTF7;
-                }
+                return Encoding.Unicode;
             }
-            if (bytes.Length >= 4)
+            else if (len >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)//UTF-8
             {
-                if (bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0xfe && bytes[3] == 0xff)//UTF-32BE
-                {
-                    return new UTF32Encoding(true, true);
-                }
-                if (bytes[0] == 0xff && bytes[1] == 0xfe && bytes[2] == 0x00 && bytes[3] == 0x00)//UTF-32LE
-                {
-                    return new UTF32Encoding(false, true);
-                }
+                return new UTF8Encoding(true, true);
+            }
+            else if (len >= 3 && bytes[0] == 0x2b && bytes[1] == 0x2f && bytes[2] == 0x76)//UTF-7
+            {
+                return Encoding.UTF7;
+            }
+            else if (len >= 4 && bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0xfe && bytes[3] == 0xff)//UTF-32BE
+            {
+                return new UTF32Encoding(true, true);
+            }
+            else if (len >= 4 && bytes[0] == 0xff && bytes[1] == 0xfe && bytes[2] == 0x00 && bytes[3] == 0x00)//UTF-32LE
+            {
+                return new UTF32Encoding(false, true);
             }
 
-            return null;
-        }
+            //文字コード判定と日本語の文章らしさをまとめて確認
 
-        //簡易ISO-2022-JP判定
-        private static bool checkISO_2022_JP(byte[] bytes)
-        {
-            string str = BitConverter.ToString(bytes);
-            string[] blocks = str.Split(new string[] { "1B-" }, StringSplitOptions.RemoveEmptyEntries);
+            //Shift_JIS判定用
+            bool sjis = true;         //すべてのバイトがShift_JISで使用するバイト範囲かどうか
+            bool sjis_2ndbyte = false;//次回の判定がShift_JISの2バイト目の判定かどうか
+            bool sjis_kana = false;   //かな判定用
+            bool sjis_kanji = false;  //常用漢字判定用
+            int counter_sjis = 0;     //Shift_JISらしさ
 
-            if (blocks.Length == 0) return false;
+            //UTF-8判定用
+            bool utf8 = true;            //すべてのバイトがUTF-8で使用するバイト範囲かどうか
+            bool utf8_multibyte = false; //次回の判定がUTF-8の2バイト目以降の判定かどうか
+            bool utf8_kana_kanji = false;//かな・常用漢字判定用
+            int counter_utf8 = 0;        //UTF-8らしさ
+            int counter_utf8_multibyte = 0;
 
-            int counter = 0;
-            foreach (var block in blocks)
+            //EUC-JP判定用
+            bool eucjp = true;            //すべてのバイトがEUC-JPで使用するバイト範囲かどうか
+            bool eucjp_multibyte = false; //次回の判定がEUC-JPの2バイト目以降の判定かどうか
+            bool eucjp_kana_kanji = false;//かな・常用漢字判定用
+            int counter_eucjp = 0;        //EUC-JPらしさ
+            int counter_eucjp_multibyte = 0;
+
+            for (int i = 0; i < len; i++)
             {
-                if (block.StartsWith("24-40")
-                || block.StartsWith("24-42")
-                || block.StartsWith("26-40")//本来は"26-40-1B-24-42"であるが簡易的に判定
-                || block.StartsWith("24-28-44")
-                || block.StartsWith("24-28-4F")
-                || block.StartsWith("24-28-51")
-                || block.StartsWith("24-28-50")
-                || block.StartsWith("28-4A")
-                || block.StartsWith("28-49")
-                || block.StartsWith("28-42")
-                )
+                byte b = bytes[i];
+
+                //Shift_JIS判定
+                if (sjis)
                 {
-                    counter++;
-                }
-            }
-
-            return ((double)counter / (double)blocks.Length) > 0.95;
-        }
-
-        //簡易文字コード判定
-        //バイトを文字に変換し再度バイト変換したとき同一かどうか
-        private static int checkReconversion(byte[] bytes, Encoding enc)
-        {
-            try
-            {
-                //文字列に変換
-                string str = enc.GetString(bytes);
-
-                //バイトに再変換
-                byte[] rebytes = enc.GetBytes(str);
-
-                if (BitConverter.ToString(bytes) == BitConverter.ToString(rebytes))
-                {
-                    return -1;//同一
-                }
-                else
-                {
-                    int len = bytes.Length <= rebytes.Length ? rebytes.Length : bytes.Length;
-                    for (int i = 0; i < len; i++)
+                    if (!sjis_2ndbyte)
                     {
-                        if (bytes[i] != rebytes[i])
+                        if (b == 0x0D                   //CR
+                            || b == 0x0A                //LF
+                            || b == 0x09                //tab
+                            || (0x20 <= b && b <= 0x7E))//ASCII文字
                         {
-                            return i == 0 ? 0 : i - 1;//一致バイト数
+                            counter_sjis++;
+                        }
+                        else if ((0x81 <= b && b <= 0x9F) || (0xE0 <= b && b <= 0xFC))//Shift_JISの2バイト文字の1バイト目の場合
+                        {
+                            //2バイト目の判定を行う
+                            sjis_2ndbyte = true;
+
+                            if (0x82 <= b && b <= 0x83)//Shift_JISのかな
+                            {
+                                sjis_kana = true;
+                            }
+                            else if ((0x88 <= b && b <= 0x9F) || (0xE0 <= b && b <= 0xE3) || b == 0xE6 || b == 0xE7)//Shift_JISの常用漢字
+                            {
+                                sjis_kanji = true;
+                            }
+                        }
+                        else if (0xA1 <= b && b <= 0xDF)//Shift_JISの1バイト文字の場合(半角カナ)
+                        {
+                            ;
+                        }
+                        else if (0x00 <= b && b <= 0x7F)//ASCIIコード
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            //Shift_JISでない
+                            counter_sjis = 0;
+                            sjis = false;
+                        }
+                    }
+                    else
+                    {
+                        if ((0x40 <= b && b <= 0x7E) || (0x80 <= b && b <= 0xFC))//Shift_JISの2バイト文字の2バイト目の場合
+                        {
+                            if (sjis_kana && 0x40 <= b && b <= 0xF1)//Shift_JISのかな
+                            {
+                                counter_sjis += 2;
+                            }
+                            else if (sjis_kanji && 0x40 <= b && b <= 0xFC && b != 0x7F)//Shift_JISの常用漢字
+                            {
+                                counter_sjis += 2;
+                            }
+
+                            sjis_2ndbyte = sjis_kana = sjis_kanji = false;
+                        }
+                        else
+                        {
+                            //Shift_JISでない
+                            counter_sjis = 0;
+                            sjis = false;
                         }
                     }
                 }
-            }
-            catch
-            {
-                ;
+
+                //UTF-8判定
+                if (utf8)
+                {
+                    if (!utf8_multibyte)
+                    {
+                        if (b == 0x0D                   //CR
+                            || b == 0x0A                //LF
+                            || b == 0x09                //tab
+                            || (0x20 <= b && b <= 0x7E))//ASCII文字
+                        {
+                            counter_utf8++;
+                        }
+                        else if (0xC2 <= b && b <= 0xDF)//2バイト文字の場合
+                        {
+                            utf8_multibyte = true;
+                            counter_utf8_multibyte = 1;
+                        }
+                        else if (0xE0 <= b && b <= 0xEF)//3バイト文字の場合
+                        {
+                            utf8_multibyte = true;
+                            counter_utf8_multibyte = 2;
+
+                            if (b == 0xE3 || (0xE4 <= b && b <= 0xE9))
+                            {
+                                utf8_kana_kanji = true;//かな・常用漢字
+                            }
+                        }
+                        else if (0xF0 <= b && b <= 0xF3)//4バイト文字の場合
+                        {
+                            utf8_multibyte = true;
+                            counter_utf8_multibyte = 3;
+                        }
+                        else if (0x00 <= b && b <= 0x7F)//ASCIIコード
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            //UTF-8でない
+                            counter_utf8 = 0;
+                            utf8 = false;
+                        }
+                    }
+                    else
+                    {
+                        if (counter_utf8_multibyte > 0)
+                        {
+                            counter_utf8_multibyte--;
+
+                            if (b < 0x80 || 0xBF < b)
+                            {
+                                //UTF-8でない
+                                counter_utf8 = 0;
+                                utf8 = false;
+                            }
+                        }
+
+                        if (utf8 && counter_utf8_multibyte == 0)
+                        {
+                            if (utf8_kana_kanji)
+                            {
+                                counter_utf8 += 3;
+                            }
+                            utf8_multibyte = utf8_kana_kanji = false;
+                        }
+                    }
+                }
+
+                //EUC-JP判定
+                if (eucjp)
+                {
+                    if (!eucjp_multibyte)
+                    {
+                        if (b == 0x0D                   //CR
+                            || b == 0x0A                //LF
+                            || b == 0x09                //tab
+                            || (0x20 <= b && b <= 0x7E))//ASCII文字
+                        {
+                            counter_eucjp++;
+                        }
+                        else if (b == 0x8E || (0xA1 <= b && b <= 0xA8) || b == 0xAD || (0xB0 <= b && b <= 0xFE))//2バイト文字の場合
+                        {
+                            eucjp_multibyte = true;
+                            counter_eucjp_multibyte = 1;
+
+                            if (b == 0xA4 || b == 0xA5 || (0xB0 <= b && b <= 0xEE))
+                            {
+                                eucjp_kana_kanji = true;
+                            }
+                        }
+                        else if (b == 0x8F)//3バイト文字の場合
+                        {
+                            eucjp_multibyte = true;
+                            counter_eucjp_multibyte = 2;
+                        }
+                        else if (0x00 <= b && b <= 0x7F)//ASCIIコード
+                        {
+                            ;
+                        }
+                        else
+                        {
+                            //EUC-JPでない
+                            counter_eucjp = 0;
+                            eucjp = false;
+                        }
+                    }
+                    else
+                    {
+                        if (counter_eucjp_multibyte > 0)
+                        {
+                            counter_eucjp_multibyte--;
+
+                            if (b < 0xA1 || 0xFE < b)
+                            {
+                                //EUC-JPでない
+                                counter_eucjp = 0;
+                                eucjp = false;
+                            }
+                        }
+
+                        if (eucjp && counter_eucjp_multibyte == 0)
+                        {
+                            if (eucjp_kana_kanji)
+                            {
+                                counter_eucjp += 2;
+                            }
+                            eucjp_multibyte = eucjp_kana_kanji = false;
+                        }
+                    }
+                }
+
+                //ISO-2022-JP
+                if (b == 0x1B)
+                {
+                    if ((i + 2 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x40)                                                                           //1B-24-40
+                        || (i + 2 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x42)                                                                        //1B-24-42
+                        || (i + 2 < len && bytes[i + 1] == 0x28 && bytes[i + 2] == 0x4A)                                                                        //1B-28-4A
+                        || (i + 2 < len && bytes[i + 1] == 0x28 && bytes[i + 2] == 0x49)                                                                        //1B-28-49
+                        || (i + 2 < len && bytes[i + 1] == 0x28 && bytes[i + 2] == 0x42)                                                                        //1B-28-42
+                        || (i + 3 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x48 && bytes[i + 3] == 0x44)                                                //1B-24-48-44
+                        || (i + 3 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x48 && bytes[i + 3] == 0x4F)                                                //1B-24-48-4F
+                        || (i + 3 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x48 && bytes[i + 3] == 0x51)                                                //1B-24-48-51
+                        || (i + 3 < len && bytes[i + 1] == 0x24 && bytes[i + 2] == 0x48 && bytes[i + 3] == 0x50)                                                //1B-24-48-50
+                        || (i + 5 < len && bytes[i + 1] == 0x26 && bytes[i + 2] == 0x40 && bytes[i + 3] == 0x1B && bytes[i + 4] == 0x24 && bytes[i + 5] == 0x42)//1B-26-40-1B-24-42
+                    )
+                    {
+                        return Encoding.GetEncoding(50220);//iso-2022-jp
+                    }
+                }
             }
 
-            return 0;
+            // すべて読み取った場合で、最後が多バイト文字の途中で終わっている場合は判定NG
+            if (readAll)
+            {
+                if (sjis && sjis_2ndbyte)
+                {
+                    sjis = false;
+                }
+
+                if (utf8 && utf8_multibyte)
+                {
+                    utf8 = false;
+                }
+
+                if (eucjp && eucjp_multibyte)
+                {
+                    eucjp = false;
+                }
+            }
+
+            if (sjis || utf8 || eucjp)
+            {
+                //日本語らしさの最大値確認
+                int max_value = counter_eucjp;
+                if (counter_sjis > max_value)
+                {
+                    max_value = counter_sjis;
+                }
+                if (counter_utf8 > max_value)
+                {
+                    max_value = counter_utf8;
+                }
+
+                //文字コード判定
+                if (max_value == counter_utf8)
+                {
+                    return new UTF8Encoding(false, true);//utf8
+                }
+                else if (max_value == counter_sjis)
+                {
+                    return Encoding.GetEncoding(932);//ShiftJIS
+                }
+                else
+                {
+                    return Encoding.GetEncoding(51932);//EUC-JP
+                }
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 
