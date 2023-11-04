@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using TextLib;
 
 namespace SaisokuFreehand
 {
@@ -43,7 +44,7 @@ namespace SaisokuFreehand
         string appfolder;
         string appname;
         string imagefolder;
-        TextLib.IniFile pfini = null;
+        IniFile iniFile = new IniFile();
         string saveformat;
 
         //ソフトウェアのメニュー
@@ -66,21 +67,19 @@ namespace SaisokuFreehand
             appfolder = System.IO.Path.GetDirectoryName(apppath);
             imagefolder = appfolder + @"\image";
             appname = System.IO.Path.GetFileNameWithoutExtension(apppath);
-            pfini = new TextLib.IniFile(appfolder + @"\" + appname + ".ini");
 
             //設定ファイル読み込みと保存
-            pfini.load();
-            this.起動時に画面をポーズするToolStripMenuItem.Checked = pfini.getvalue("BootMode", "pause", 0, 0, 1) == 1;
-            bool bootcapture = pfini.getvalue("BootMode", "capture", 0, 0, 1) == 1;
-            int mode_ini = pfini.getvalue("ButtonSelect", "mode", 0, 0, 3);
-            int penbold_ini = pfini.getvalue("ButtonSelect", "size", 1, 0, 2);
-            int color_ini = pfini.getvalue("ButtonSelect", "color", 0, 0, 3);
-            this.画面をキャプチャしたら終了するToolStripMenuItem.Checked = pfini.getvalue("Capture", "autoexit", 0, 0, 1) == 1;
-            this.画像を自動保存するToolStripMenuItem.Checked = pfini.getvalue("Capture", "save", 0, 0, 1) == 1;
-            this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked = pfini.getvalue("Soft", "Icon", 0, 0, 1) == 1;
-            history = pfini.getvalue("Soft", "History", 0, 0, 1) == 1;
+            this.起動時に画面をポーズするToolStripMenuItem.Checked = iniFile.GetKeyValueBool("BootMode", "pause", false, true);
+            bool bootcapture = iniFile.GetKeyValueBool("BootMode", "capture", false, true);
+            int mode_ini = iniFile.GetKeyValueInt("ButtonSelect", "mode", 0, 0, 3, true);
+            int penbold_ini = iniFile.GetKeyValueInt("ButtonSelect", "size", 1, 0, 2, true);
+            int color_ini = iniFile.GetKeyValueInt("ButtonSelect", "color", 0, 0, 3, true);
+            this.画面をキャプチャしたら終了するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "autoexit", false, true);
+            this.画像を自動保存するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "save", false, true);
+            this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Soft", "Icon", false, true);
+            history = iniFile.GetKeyValueBool("Soft", "History", false, true);
             this.historyToolStripMenuItem.Checked = history;
-            saveformat = pfini.getvalue("Capture", "saveformat", "png");
+            saveformat = iniFile.GetKeyValueStringWithoutEmpty("Capture", "saveformat", "png");
             saveformat = saveformat.ToLower();
             if (saveformat != "png" && saveformat != "bmp" && saveformat != "jpg" && saveformat != "jpeg")
             {
@@ -103,9 +102,9 @@ namespace SaisokuFreehand
                     break;
             }
 
-            pfini.setvalue("Capture", "saveformat", saveformat);
-            int pos_x = pfini.getvalue("Soft", "Top", 63);
-            int pos_y = pfini.getvalue("Soft", "Left", 78);
+            iniFile.SetKeyValueString("Capture", "saveformat", saveformat);
+            int pos_x = iniFile.GetKeyValueInt("Soft", "Top", 63, true);
+            int pos_y = iniFile.GetKeyValueInt("Soft", "Left", 78, true);
 
             //ウィンドウ
             this.Text = "最速フリーハンド";
@@ -327,9 +326,8 @@ namespace SaisokuFreehand
                 pos_y = 0;
             }
             this.panel1.Location = new Point(pos_x, pos_y);
-            pfini.setvalue("Soft", "Top", pos_x.ToString());
-            pfini.setvalue("Soft", "Left", pos_y.ToString());
-            pfini.WriteIniFile();
+            iniFile.SetKeyValueInt("Soft", "Top", pos_x);
+            iniFile.SetKeyValueInt("Soft", "Left", pos_y);
         }
 
         private void toolstrip_sizenone(ToolStripMenuItem item)
@@ -364,9 +362,8 @@ namespace SaisokuFreehand
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            pfini.setvalue("Soft", "Top", this.panel1.Location.X.ToString());
-            pfini.setvalue("Soft", "Left", this.panel1.Location.Y.ToString());
-            pfini.WriteIniFile();
+            iniFile.SetKeyValueInt("Soft", "Top", this.panel1.Location.X);
+            iniFile.SetKeyValueInt("Soft", "Left", this.panel1.Location.Y);
         }
 
         #endregion
@@ -1824,8 +1821,7 @@ namespace SaisokuFreehand
             if (sender is ToolStripMenuItem)
             {
                 ((ToolStripMenuItem)sender).Checked = !((ToolStripMenuItem)sender).Checked;
-                pfini.setvalue("BootMode", "pause", ((ToolStripMenuItem)sender).Checked ? "1" : "0");
-                pfini.WriteIniFile();
+                iniFile.SetKeyValueBool("BootMode", "pause", ((ToolStripMenuItem)sender).Checked);
             }
         }
         private void 画面をキャプチャできる状態で起動するToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1833,8 +1829,7 @@ namespace SaisokuFreehand
             if (sender is ToolStripMenuItem)
             {
                 ((ToolStripMenuItem)sender).Checked = !((ToolStripMenuItem)sender).Checked;
-                pfini.setvalue("BootMode", "capture", ((ToolStripMenuItem)sender).Checked ? "1" : "0");
-                pfini.WriteIniFile();
+                iniFile.SetKeyValueBool("BootMode", "capture", ((ToolStripMenuItem)sender).Checked);
             }
         }
 
@@ -1843,8 +1838,7 @@ namespace SaisokuFreehand
             if (sender is ToolStripMenuItem)
             {
                 ((ToolStripMenuItem)sender).Checked = !((ToolStripMenuItem)sender).Checked;
-                pfini.setvalue("Capture", "autoexit", ((ToolStripMenuItem)sender).Checked ? "1" : "0");
-                pfini.WriteIniFile();
+                iniFile.SetKeyValueBool("Capture", "autoexit", ((ToolStripMenuItem)sender).Checked);
             }
         }
 
@@ -1853,8 +1847,7 @@ namespace SaisokuFreehand
             if (sender is ToolStripMenuItem)
             {
                 ((ToolStripMenuItem)sender).Checked = !((ToolStripMenuItem)sender).Checked;
-                pfini.setvalue("Capture", "save", ((ToolStripMenuItem)sender).Checked ? "1" : "0");
-                pfini.WriteIniFile();
+                iniFile.SetKeyValueBool("Capture", "save", ((ToolStripMenuItem)sender).Checked);
             }
         }
 
@@ -1875,8 +1868,7 @@ namespace SaisokuFreehand
                 {
                     if (((ToolStripMenuItem)sender).Name.Contains(d.Value))
                     {
-                        pfini.setvalue("ButtonSelect", "mode", d.Key.ToString());
-                        pfini.WriteIniFile();
+                        iniFile.SetKeyValueInt("ButtonSelect", "mode", d.Key);
                     }
                 }
             }
@@ -1898,8 +1890,7 @@ namespace SaisokuFreehand
                 {
                     if (((ToolStripMenuItem)sender).Name.Contains(d.Value))
                     {
-                        pfini.setvalue("ButtonSelect", "size", d.Key.ToString());
-                        pfini.WriteIniFile();
+                        iniFile.SetKeyValueInt("ButtonSelect", "size", d.Key);
                     }
                 }
             }
@@ -1922,8 +1913,7 @@ namespace SaisokuFreehand
                 {
                     if (((ToolStripMenuItem)sender).Name.Contains(d.Value))
                     {
-                        pfini.setvalue("ButtonSelect", "color", d.Key.ToString());
-                        pfini.WriteIniFile();
+                        iniFile.SetKeyValueInt("ButtonSelect", "color", d.Key);
                     }
                 }
             }
@@ -1945,9 +1935,8 @@ namespace SaisokuFreehand
                 {
                     if (((ToolStripMenuItem)sender).Name.ToLower().Contains(d.Value))
                     {
-                        pfini.setvalue("Capture", "saveformat", d.Value);
+                        iniFile.SetKeyValueString("Capture", "saveformat", d.Value);
                         saveformat = d.Value;
-                        pfini.WriteIniFile();
                     }
                 }
             }
@@ -1957,15 +1946,13 @@ namespace SaisokuFreehand
         {
             this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked = !this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked;
             TitlebarIconView(this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
-            pfini.setvalue("Soft", "Icon", this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked ? "1" : "0");
-            pfini.WriteIniFile();
+            iniFile.SetKeyValueBool("Soft", "Icon", this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
         }
 
         private void historyToolStripMenuItem_Click(object sender, EventArgs e)
         {
             this.historyToolStripMenuItem.Checked = !this.historyToolStripMenuItem.Checked;
-            pfini.setvalue("Soft", "History", this.historyToolStripMenuItem.Checked ? "1" : "0");
-            pfini.WriteIniFile();
+            iniFile.SetKeyValueBool("Soft", "History", this.historyToolStripMenuItem.Checked);
         }
 
         #endregion
