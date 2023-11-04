@@ -201,6 +201,15 @@ namespace TextLib
                 return ret;
             }
         }
+        public List<(string, string, object)> GetKeyValueArray()
+        {
+            Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
+
+            IniFileInnerClass IniFileInnerClass = new IniFileInnerClass(filepath, enc);
+            IniFileInnerClass.load();
+
+            return IniFileInnerClass.getValues();
+        }
 
         //設定
         public void SetKeyValueString(string section, string key, string value)
@@ -220,12 +229,38 @@ namespace TextLib
         {
             SetKeyValueInt(section, key, value ? 1 : 0);
         }
+        public void SetKeyValueArray(List<(string, string, object)> datas)
+        {
+            Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
+
+            IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
+            iniFile.load();
+
+            foreach ((string section, string key, object value) in datas)
+            {
+                if (value.GetType() == typeof(int))//int
+                {
+                    iniFile.setValue(section, key, ((int)value).ToString());
+                }
+                else if (value.GetType() == typeof(string))//string
+                {
+                    iniFile.setValue(section, key, (string)value);
+                }
+                else if (value.GetType() == typeof(bool))//bool
+                {
+                    iniFile.setValue(section, key, (bool)value ? "1" : "0");
+                }
+            }
+
+            iniFile.WriteIniFile();
+        }
 
         //キーの値を削除
         public void DeleteKeyValue(string section, string key)
         {
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
+            iniFile.load();
             iniFile.deleteValue(section, key);
             iniFile.WriteIniFile();
         }
@@ -234,7 +269,17 @@ namespace TextLib
         {
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
+            iniFile.load();
             iniFile.deleteKey(section, key);
+            iniFile.WriteIniFile();
+        }
+        //セクションを削除
+        public void DeleteSection(string section)
+        {
+            Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
+            IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
+            iniFile.load();
+            iniFile.deleteSection(section);
             iniFile.WriteIniFile();
         }
     }
@@ -498,67 +543,20 @@ namespace TextLib
             return null;
         }
 
-        //値の取得。ない場合はデフォルト値を書き込み
-        public string getValue(string sectionName, string keyName, string defaultValue, bool isValueEmptyOK = true)
+        //値を配列で取得
+        public List<(string, string, object)> getValues()
         {
-            string value = getValue(sectionName, keyName);
+            List<(string, string, object)> datas = new List<(string, string, object)>();
 
-            if (value != null)
+            foreach (Section section in items.sections)
             {
-                if (value != "" || isValueEmptyOK)
+                foreach (Key key in section.keys)
                 {
-                    return value;
+                    datas.Add((section.Name, key.Name, key.Value));
                 }
             }
 
-            setValue(sectionName, keyName, defaultValue);
-
-            return defaultValue;
-        }
-
-        //int値の取得。ない場合はデフォルト値を書き込み
-        public int getValue(string sectionName, string keyName, int defaultValue)
-        {
-            string value = getValue(sectionName, keyName);
-
-            int ret;
-            if (value != null && int.TryParse(value, out ret))
-            {
-                return ret;
-            }
-
-            setValue(sectionName, keyName, defaultValue.ToString());
-
-            return defaultValue;
-        }
-
-        //int値の取得。ない場合はデフォルト値を書き込み（上下限あり）
-        public int getValue(string sectionName, string keyName, int defaultValue, int vmin, int vmax)
-        {
-            string value = getValue(sectionName, keyName);
-
-            int ret;
-            if (value != null && int.TryParse(value, out ret))
-            {
-                if (vmin <= ret && ret <= vmax)
-                {
-                    return ret;
-                }
-                else if (ret < vmin)
-                {
-                    setValue(sectionName, keyName, vmin.ToString());
-                    return vmin;
-                }
-                else if (vmax < ret)
-                {
-                    setValue(sectionName, keyName, vmax.ToString());
-                    return vmax;
-                }
-            }
-
-            setValue(sectionName, keyName, defaultValue.ToString());
-
-            return defaultValue;
+            return datas;
         }
 
         //値の設定
@@ -629,6 +627,17 @@ namespace TextLib
             }
         }
 
+        //セクションの削除
+        public void deleteSection(string sname)
+        {
+            int sectionIndex = items.getSectionIndex(sname);
+
+            if (sectionIndex >= 0)//section
+            {
+                items.sections.RemoveAt(sectionIndex);
+            }
+        }
+
         //セクション有無
         public bool isSectionExist(string sectionName) => items.getSectionIndex(sectionName) >= 0;
 
@@ -646,107 +655,12 @@ namespace TextLib
 
         #endregion
 
-        #region WriteIniFile
         //設定の書き込み
         public bool WriteIniFile()
         {
             return TextFile.Write(IniFilePath, items.ToStr(), false, encoding);
         }
-        /*
-        public bool WriteIniFile(string sname, string kname, string kvalue)//指定のセクション、キーに書き込み
-        {
-            //ファイルが存在する場合
-            if (File.Exists(IniFilePath))
-            {
-                //空ファイルでなければ
-                if ((new FileInfo(IniFilePath)).Length != 0)
-                {
-                    //文字コード確認
-                    if (!EncodeLib.ChangeEncode(IniFilePath, encoding))
-                    {
-                        return false;
-                    }
-
-                    //ファイル読み込み
-                    string strall = TextFile.Read(IniFilePath, encoding);
-                    if (strall == null)
-                    {
-                        return false;
-                    }
-
-                    //中身確認
-                    if (strall != "")
-                    {
-                        string kakikomi = "";
-
-                        //改行コードで切り分けて配列に格納
-                        strall = strall.Replace("\r\n", "\n");
-                        string[] onelines = strall.Split('\n');
-
-                        //読み込んだ内容を格納
-                        bool current_section = false;
-                        bool current_action = false;
-                        foreach (string buf in onelines)
-                        {
-                            string oneline = buf.Trim();
-
-                            current_action = false;
-
-                            if (oneline.Length > 0)
-                            {
-                                //section
-                                if ((oneline.StartsWith("[") && oneline.EndsWith("]")))
-                                {
-                                    current_section = false;
-                                    if (oneline.Length >= 3)//何らかの中身があるはずで
-                                    {
-                                        //取得
-                                        string name = oneline.Substring(1, oneline.Length - 2).Trim();
-
-                                        if (name.Length != 0)//セクション名が空白でない場合
-                                        {
-                                            if (name == sname)
-                                            {
-                                                current_section = true;
-                                            }
-                                        }
-                                    }
-                                }
-                                //key
-                                else if (oneline.IndexOf('=') > 1 && current_section)
-                                {
-                                    //取得
-                                    string name = oneline.Substring(0, oneline.IndexOf('='));
-
-                                    if (name == kname)
-                                    {
-                                        current_action = true;
-                                    }
-                                }
-
-                                if (current_action)
-                                {
-                                    kakikomi += kname + "=" + kvalue + Environment.NewLine;
-                                }
-                                else
-                                {
-                                    kakikomi += oneline + Environment.NewLine;
-                                }
-                            }
-                        }
-
-                        //書き込み
-                        return TextFile.Write(IniFilePath, kakikomi, false, encoding);
-                    }
-                }
-            }
-            return false;
-        }
-        */
-
-        #endregion
     }
-
 
     #region TextFile
 
