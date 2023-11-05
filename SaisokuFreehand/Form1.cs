@@ -69,7 +69,7 @@ namespace SaisokuFreehand
             appname = System.IO.Path.GetFileNameWithoutExtension(apppath);
 
             //設定ファイル読み込みと保存
-            this.起動時に画面をポーズするToolStripMenuItem.Checked = iniFile.GetKeyValueBool("BootMode", "pause", false, true);
+            this.起動時に画面をポーズするToolStripMenuItem.Checked = iniFile.GetKeyValueBool("BootMode", "pause", true, true);
             bool bootcapture = iniFile.GetKeyValueBool("BootMode", "capture", false, true);
             int mode_ini = iniFile.GetKeyValueInt("ButtonSelect", "mode", 0, 0, 3, true);
             int penbold_ini = iniFile.GetKeyValueInt("ButtonSelect", "size", 1, 0, 2, true);
