@@ -1,4 +1,5 @@
-﻿using System;
+﻿//2023.11.05-01
+using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
@@ -36,6 +37,12 @@ namespace TextLib
             encoding = _encoding;
             FileExistCheck();
         }
+        public IniFile(Encoding _encoding)
+        {
+            filepath = AppInfo.BaseIniFile;
+            encoding = _encoding;
+            FileExistCheck();
+        }
 
         private bool FileExistCheck()
         {
@@ -59,10 +66,12 @@ namespace TextLib
         //該当キーがない場合はnullを返す。
         public string GetKeyValue(string section, string key)
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
-
             IniFileInnerClass IniFileInnerClass = new IniFileInnerClass(filepath, enc);
             IniFileInnerClass.load();
+
+            //文字列取得
             return IniFileInnerClass.getValue(section, key);
         }
 
@@ -201,24 +210,29 @@ namespace TextLib
                 return ret;
             }
         }
-        public List<(string, string, object)> GetKeyValueArray()
+        public (string, string, string)[] GetKeyValueAsArray(string section = "")
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
-
             IniFileInnerClass IniFileInnerClass = new IniFileInnerClass(filepath, enc);
             IniFileInnerClass.load();
 
-            return IniFileInnerClass.getValues();
+            //値を取得
+            return IniFileInnerClass.getValues(section).ToArray();
         }
 
         //設定
         public void SetKeyValueString(string section, string key, string value)
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
-
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
             iniFile.load();
+
+            //値の設定
             iniFile.setValue(section, key, value);
+
+            //ファイル保存
             iniFile.WriteIniFile();
         }
         public void SetKeyValueInt(string section, string key, int value)
@@ -229,7 +243,7 @@ namespace TextLib
         {
             SetKeyValueInt(section, key, value ? 1 : 0);
         }
-        public void SetKeyValueArray(List<(string, string, object)> datas)
+        public void SetKeyValueFromArray((string, string, object)[] datas)
         {
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
 
@@ -258,28 +272,43 @@ namespace TextLib
         //キーの値を削除
         public void DeleteKeyValue(string section, string key)
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
             iniFile.load();
+
+            //キーの値削除
             iniFile.deleteValue(section, key);
+
+            //ファイル保存
             iniFile.WriteIniFile();
         }
         //キーを削除
         public void DeleteKey(string section, string key)
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
             iniFile.load();
+
+            //キー削除
             iniFile.deleteKey(section, key);
+
+            //ファイル保存
             iniFile.WriteIniFile();
         }
         //セクションを削除
         public void DeleteSection(string section)
         {
+            //ファイル読み込み
             Encoding enc = (encoding ?? EncodeLib.GetJpEncoding(filepath)) ?? EncodeLib.UTF8;
             IniFileInnerClass iniFile = new IniFileInnerClass(filepath, enc);
             iniFile.load();
+
+            //セクション削除
             iniFile.deleteSection(section);
+
+            //ファイル保存
             iniFile.WriteIniFile();
         }
     }
@@ -304,13 +333,10 @@ namespace TextLib
                 sections = new List<Section>();
             }
 
-            //セクションの数
-            public int sectionCount => sections?.Count ?? 0;
-
             //指定のセクション名が存在するか。存在しない場合は-1。する場合はindexを返す
             public int getSectionIndex(string sectionName)
             {
-                for (int i = 0; i < sectionCount; i++)
+                for (int i = 0; i < sections.Count; i++)
                 {
                     if (sections[i].Name == sectionName)
                     {
@@ -325,22 +351,20 @@ namespace TextLib
             public string ToStr()
             {
                 StringBuilder sb = new StringBuilder();
-                if (sectionCount != 0)
-                {
-                    foreach (Section section in sections)
-                    {
-                        if (section.keyCount != 0)
-                        {
-                            sb.Append("[");
-                            sb.Append(section.Name);
-                            sb.AppendLine("]");
 
-                            foreach (Key key in section.keys)
-                            {
-                                sb.Append(key.Name);
-                                sb.Append("=");
-                                sb.AppendLine(key.Value);
-                            }
+                foreach (Section section in sections)
+                {
+                    if (section.keys.Count != 0)
+                    {
+                        sb.Append("[");
+                        sb.Append(section.Name);
+                        sb.AppendLine("]");
+
+                        foreach (Key key in section.keys)
+                        {
+                            sb.Append(key.Name);
+                            sb.Append("=");
+                            sb.AppendLine(key.Value);
                         }
                     }
                 }
@@ -360,13 +384,10 @@ namespace TextLib
                 keys = new List<Key>();
             }
 
-            //キーの数
-            public int keyCount => keys?.Count ?? 0;
-
             //指定のキー名が存在するか。存在しない場合は-1。する場合はindexを返す
             public int getKeyIndex(string keyName)
             {
-                for (int i = 0; i < keyCount; i++)
+                for (int i = 0; i < keys.Count; i++)
                 {
                     if (keys[i].Name == keyName)
                     {
@@ -434,12 +455,6 @@ namespace TextLib
                 //空ファイルでなければ
                 if (new FileInfo(IniFilePath).Length != 0)
                 {
-                    //文字コード確認
-                    if (!EncodeLib.ChangeEncode(IniFilePath, encoding))
-                    {
-                        return false;
-                    }
-
                     //ファイル読み込み
                     string allText = TextFile.Read(IniFilePath, encoding);
                     if (allText == null)
@@ -471,20 +486,17 @@ namespace TextLib
                                         if (sectionName.Length != 0)//セクション名が空白でない場合
                                         {
                                             //二重セクション名は禁止
-                                            bool check = true;
-                                            if (items.sectionCount != 0)
+                                            bool isNotDouble = true;
+                                            foreach (Section section in items.sections)
                                             {
-                                                foreach (Section section in items.sections)
+                                                if (sectionName == section.Name)
                                                 {
-                                                    if (sectionName == section.Name)
-                                                    {
-                                                        check = false;
-                                                        break;
-                                                    }
+                                                    isNotDouble = false;
+                                                    break;
                                                 }
                                             }
 
-                                            if (check)//二重セクション名でない場合
+                                            if (isNotDouble)//二重セクション名でない場合
                                             {
                                                 //確保
                                                 Section section = new Section(line.Substring(1, line.Length - 2));
@@ -506,7 +518,7 @@ namespace TextLib
                                         Key key = new Key(name, value);
 
                                         //現在のsectionにキー追加
-                                        items.sections[items.sectionCount - 1].keys.Add(key);
+                                        items.sections[items.sections.Count - 1].keys.Add(key);
                                     }
                                 }
                             }
@@ -525,6 +537,7 @@ namespace TextLib
         #endregion
 
         #region get/set
+
         //値の取得
         public string getValue(string sectionName, string keyName)
         {
@@ -544,15 +557,29 @@ namespace TextLib
         }
 
         //値を配列で取得
-        public List<(string, string, object)> getValues()
+        public List<(string, string, string)> getValues(string sectionName = "")
         {
-            List<(string, string, object)> datas = new List<(string, string, object)>();
+            List<(string, string, string)> datas = new List<(string, string, string)>();
 
-            foreach (Section section in items.sections)
+            if (sectionName == "")
             {
-                foreach (Key key in section.keys)
+                foreach (Section section in items.sections)
                 {
-                    datas.Add((section.Name, key.Name, key.Value));
+                    foreach (Key key in section.keys)
+                    {
+                        datas.Add((section.Name, key.Name, key.Value));
+                    }
+                }
+            }
+            else
+            {
+                int sectionIndex = items.getSectionIndex(sectionName);
+                if (sectionIndex >= 0)
+                {
+                    foreach (Key key in items.sections[sectionIndex].keys)
+                    {
+                        datas.Add((sectionName, key.Name, key.Value));
+                    }
                 }
             }
 
@@ -636,21 +663,6 @@ namespace TextLib
             {
                 items.sections.RemoveAt(sectionIndex);
             }
-        }
-
-        //セクション有無
-        public bool isSectionExist(string sectionName) => items.getSectionIndex(sectionName) >= 0;
-
-        //キー有無
-        public bool isKeyExist(string sectionName, string keyName)
-        {
-            int sectionIndex = items.getSectionIndex(sectionName);
-            if (sectionIndex >= 0)
-            {
-                return items.sections[sectionIndex].getKeyIndex(keyName) >= 0;
-            }
-
-            return false;
         }
 
         #endregion
