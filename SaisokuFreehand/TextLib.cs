@@ -1,4 +1,4 @@
-﻿//2023.12.02
+﻿//2023.12.03
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,17 +6,6 @@ using System.Text;
 
 namespace TextLib
 {
-    public static class AppInfo
-    {
-        public static string Filepath => System.Reflection.Assembly.GetExecutingAssembly().Location;
-        public static string Directory => Path.GetDirectoryName(Filepath);
-        public static string DirectoryYen => Path.GetDirectoryName(Filepath) + @"\";
-        public static string FileName => Path.GetFileName(Filepath);
-        public static string FileNameWithoutExtension => Path.GetFileNameWithoutExtension(Filepath);
-        public static string Extension => Path.GetExtension(Filepath).ToLower();
-        public static string BaseIniFile => DirectoryYen + FileNameWithoutExtension + ".ini";
-    }
-
     /// <summary>
     /// iniファイル読み書き用クラス
     /// </summary>
@@ -31,12 +20,23 @@ namespace TextLib
         //セクションとキーの集合
         private Items _items = new Items();
 
+        //デフォルトのiniファイルパス
+        private string _baseIniFilepath
+        {
+            get
+            {
+                string filepath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                string directory = Path.GetDirectoryName(filepath);
+                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filepath);
+                return directory + @"\" + fileNameWithoutExtension + ".ini";
+            }
+        }
         /// <summary>
         /// iniファイルの初期化。App.exeの場合App.iniをiniファイルとします。Encodingは自動で判定します。
         /// </summary>
         public IniFile()
         {
-            _iniFilepath = AppInfo.BaseIniFile;
+            _iniFilepath = _baseIniFilepath;
             _encoding = (_encoding ?? EncodeLib.GetJpEncoding(_iniFilepath)) ?? EncodeLib.UTF8;
         }
 
@@ -67,7 +67,7 @@ namespace TextLib
         /// <param name="encoding">iniファイルの文字コード</param>
         public IniFile(Encoding encoding)
         {
-            _iniFilepath = AppInfo.BaseIniFile;
+            _iniFilepath = _baseIniFilepath;
             _encoding = encoding;
         }
 
