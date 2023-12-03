@@ -1,8 +1,8 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using TextLib;
 
 namespace SaisokuFreehand
 {
@@ -35,16 +35,11 @@ namespace SaisokuFreehand
         bool MouseLeftDownFlag = false;
 
         //その他
-        string crlf = Environment.NewLine;
-
         private MouseButtons mb = MouseButtons.Left;
 
         //ファイルパス
-        string apppath;
-        string appfolder;
-        string appname;
         string imagefolder;
-        IniFile iniFile = new IniFile();
+        TextLib.IniFile iniFile = new TextLib.IniFile();
         string saveformat;
 
         //ソフトウェアのメニュー
@@ -53,6 +48,16 @@ namespace SaisokuFreehand
 
         //履歴
         bool history = false;
+
+        public static class AppInfo
+        {
+            public static string Filepath => System.Reflection.Assembly.GetExecutingAssembly().Location;
+            public static string Directory => Path.GetDirectoryName(Filepath);
+            public static string DirectoryYen => Path.GetDirectoryName(Filepath) + @"\";
+            public static string FileName => Path.GetFileName(Filepath);
+            public static string FileNameWithoutExtension => Path.GetFileNameWithoutExtension(Filepath);
+            public static string Extension => Path.GetExtension(Filepath).ToLower();
+        }
 
         #endregion
 
@@ -63,22 +68,19 @@ namespace SaisokuFreehand
             InitializeComponent();
 
             //設定ファイル
-            apppath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            appfolder = System.IO.Path.GetDirectoryName(apppath);
-            imagefolder = appfolder + @"\image";
-            appname = System.IO.Path.GetFileNameWithoutExtension(apppath);
+            imagefolder = AppInfo.DirectoryYen + @"\image";
 
             //設定ファイル読み込みと保存
-            this.起動時に画面をポーズするToolStripMenuItem.Checked = iniFile.GetKeyValueBool("BootMode", "pause", true, true);
+            起動時に画面をポーズするToolStripMenuItem.Checked = iniFile.GetKeyValueBool("BootMode", "pause", true, true);
             bool bootcapture = iniFile.GetKeyValueBool("BootMode", "capture", false, true);
             int mode_ini = iniFile.GetKeyValueInt("ButtonSelect", "mode", 0, 0, 3, true);
             int penbold_ini = iniFile.GetKeyValueInt("ButtonSelect", "size", 1, 0, 2, true);
             int color_ini = iniFile.GetKeyValueInt("ButtonSelect", "color", 0, 0, 3, true);
-            this.画面をキャプチャしたら終了するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "autoexit", false, true);
-            this.画像を自動保存するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "save", false, true);
-            this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Soft", "Icon", false, true);
+            画面をキャプチャしたら終了するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "autoexit", false, true);
+            画像を自動保存するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Capture", "save", false, true);
+            タイトルバーにアイコンを表示するToolStripMenuItem.Checked = iniFile.GetKeyValueBool("Soft", "Icon", false, true);
             history = iniFile.GetKeyValueBool("Soft", "History", false, true);
-            this.historyToolStripMenuItem.Checked = history;
+            historyToolStripMenuItem.Checked = history;
             saveformat = iniFile.GetKeyValueStringWithoutEmpty("Capture", "saveformat", "png");
             saveformat = saveformat.ToLower();
             if (saveformat != "png" && saveformat != "bmp" && saveformat != "jpg" && saveformat != "jpeg")
@@ -92,13 +94,13 @@ namespace SaisokuFreehand
             switch (saveformat)
             {
                 case "png":
-                    this.pNGToolStripMenuItem.Checked = true;
+                    pNGToolStripMenuItem.Checked = true;
                     break;
                 case "jpg":
-                    this.jPGToolStripMenuItem.Checked = true;
+                    jPGToolStripMenuItem.Checked = true;
                     break;
                 case "bmp":
-                    this.bMPToolStripMenuItem.Checked = true;
+                    bMPToolStripMenuItem.Checked = true;
                     break;
             }
 
@@ -107,73 +109,72 @@ namespace SaisokuFreehand
             int pos_y = iniFile.GetKeyValueInt("Soft", "Left", 78, true);
 
             //ウィンドウ
-            this.Text = "最速フリーハンド";
-            this.Icon = Properties.Resources.paint;
-            this.WindowState = FormWindowState.Maximized;
-            this.KeyDown += Form1_KeyDown;
-            this.TopMost = true;
-            this.FormBorderStyle = FormBorderStyle.None;
+            Text = "最速フリーハンド";
+            Icon = Properties.Resources.paint;
+            WindowState = FormWindowState.Maximized;
+            KeyDown += Form1_KeyDown;
+            TopMost = true;
+            FormBorderStyle = FormBorderStyle.None;
 
-            this.picbox.MouseDown += Picbox_MouseDown;
-            this.picbox.MouseUp += Picbox_MouseUp;
-            this.picbox.MouseMove += Picbox_MouseMove;
-            this.picbox.DoubleClick += Picbox_DoubleClick;
+            picbox.MouseDown += Picbox_MouseDown;
+            picbox.MouseUp += Picbox_MouseUp;
+            picbox.MouseMove += Picbox_MouseMove;
+            picbox.DoubleClick += Picbox_DoubleClick;
 
             //アプリケーションのコンテキストメニュー
             appmenu = new ContextMenuStrip();
-            ToolStripMenuItem menu1 = new ToolStripMenuItem();
-            menu1.Text = "閉じる(&C)";
+            ToolStripMenuItem menu1 = new ToolStripMenuItem { Text = "閉じる(&C)" };
             menu1.Font = new Font(menu1.Font, FontStyle.Bold);
             menu1.ShortcutKeys = ((Keys)((Keys.Alt | Keys.F4)));
             menu1.Click += AppClose_Click;
             appmenu.Items.Add(menu1);
 
             //初期化
-            if (this.起動時に画面をポーズするToolStripMenuItem.Checked)
+            if (起動時に画面をポーズするToolStripMenuItem.Checked)
             {
-                this.DoubleBuffered = true;
-                this.picbox.BackColor = Color.FromArgb(128, 128, 128);
+                DoubleBuffered = true;
+                picbox.BackColor = Color.FromArgb(128, 128, 128);
             }
             else
             {
-                this.BackColor = this.picbox.BackColor = this.TransparencyKey = Color.DarkGoldenrod;
+                BackColor = picbox.BackColor = TransparencyKey = Color.DarkGoldenrod;
             }
 
             if (bootcapture)
             {
-                this.画面をキャプチャできる状態で起動するToolStripMenuItem.Checked = true;
+                画面をキャプチャできる状態で起動するToolStripMenuItem.Checked = true;
                 toolStripButton_camera.Checked = true;
-                this.Cursor = Cursors.Cross;
+                Cursor = Cursors.Cross;
             }
             set_mode(mode_ini + 1);
             switch (mode_ini)
             {
                 case 0:
-                    this.フリーハンドToolStripMenuItem.Checked = true;
+                    フリーハンドToolStripMenuItem.Checked = true;
                     break;
                 case 1:
-                    this.四角ToolStripMenuItem.Checked = true;
+                    四角ToolStripMenuItem.Checked = true;
                     break;
                 case 2:
-                    this.直線ToolStripMenuItem.Checked = true;
+                    直線ToolStripMenuItem.Checked = true;
                     break;
                 case 3:
-                    this.矢印ToolStripMenuItem.Checked = true;
+                    矢印ToolStripMenuItem.Checked = true;
                     break;
             }
             switch (penbold_ini)
             {
                 case 0:
                     set_pen_bold(penbold1);
-                    this.小ToolStripMenuItem.Checked = true;
+                    小ToolStripMenuItem.Checked = true;
                     break;
                 case 1:
                     set_pen_bold(penbold2);
-                    this.中ToolStripMenuItem.Checked = true;
+                    中ToolStripMenuItem.Checked = true;
                     break;
                 case 2:
                     set_pen_bold(penbold3);
-                    this.大ToolStripMenuItem.Checked = true;
+                    大ToolStripMenuItem.Checked = true;
                     break;
             }
 
@@ -181,19 +182,19 @@ namespace SaisokuFreehand
             {
                 case 0:
                     set_pen_color(Color.Red);
-                    this.赤ToolStripMenuItem.Checked = true;
+                    赤ToolStripMenuItem.Checked = true;
                     break;
                 case 1:
                     set_pen_color(Color.Blue);
-                    this.青ToolStripMenuItem.Checked = true;
+                    青ToolStripMenuItem.Checked = true;
                     break;
                 case 2:
                     set_pen_color(Color.Yellow);
-                    this.黄ToolStripMenuItem.Checked = true;
+                    黄ToolStripMenuItem.Checked = true;
                     break;
                 case 3:
                     set_pen_color(Color.Green);
-                    this.緑ToolStripMenuItem.Checked = true;
+                    緑ToolStripMenuItem.Checked = true;
                     break;
             }
 
@@ -225,13 +226,13 @@ namespace SaisokuFreehand
             toolStripSeparator_sep3.Height = toolStripButton_camera.Height;
             toolStripSeparator_sep4.Height = toolStripButton_camera.Height;
             toolStripSeparator_sep5.Height = toolStripButton_camera.Height;
-            if (!this.起動時に画面をポーズするToolStripMenuItem.Checked)
+            if (!起動時に画面をポーズするToolStripMenuItem.Checked)
             {
                 toolStripButton_text.Visible = false;
             }
 
             //設定メニューの自動スケール無効
-            foreach (var c in this.toolStripDropDownButton_setting.DropDownItems)
+            foreach (var c in toolStripDropDownButton_setting.DropDownItems)
             {
                 if (c is ToolStripMenuItem)
                 {
@@ -240,50 +241,50 @@ namespace SaisokuFreehand
             }
 
             //ボタン
-            this.button_close.Font = new Font(SystemFonts.MenuFont.FontFamily, 14);
-            this.button_close.FlatAppearance.BorderSize = 0;
+            button_close.Font = new Font(SystemFonts.MenuFont.FontFamily, 14);
+            button_close.FlatAppearance.BorderSize = 0;
 
             //タイトル
             barsize = 28;
-            this.label_title.Text = "最速フリーハンド";
-            this.label_title.Font = SystemFonts.MenuFont;
-            this.label_title.Location = new Point(29, (barsize - this.label_title.Height) / 2);
+            label_title.Text = "最速フリーハンド";
+            label_title.Font = SystemFonts.MenuFont;
+            label_title.Location = new Point(29, (barsize - label_title.Height) / 2);
 
-            this.pictureBox_icon.Size = new Size(16, 16);
-            this.pictureBox_icon.Location = new Point(8, 6);
-            this.pictureBox_icon.BackgroundImageLayout = ImageLayout.Zoom;
-            this.pictureBox_icon.BackgroundImage = Properties.Resources.paint.ToBitmap();
-            this.pictureBox_icon.Click += new EventHandler(this.pictureBox_icon_Click);
-            this.pictureBox_icon.DoubleClick += new EventHandler(this.AppClose_Click);
-            TitlebarIconView(this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
+            pictureBox_icon.Size = new Size(16, 16);
+            pictureBox_icon.Location = new Point(8, 6);
+            pictureBox_icon.BackgroundImageLayout = ImageLayout.Zoom;
+            pictureBox_icon.BackgroundImage = Properties.Resources.paint.ToBitmap();
+            pictureBox_icon.Click += new EventHandler(pictureBox_icon_Click);
+            pictureBox_icon.DoubleClick += new EventHandler(AppClose_Click);
+            TitlebarIconView(タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
 
             //マウスで移動
-            this.panel1.MouseDown += new MouseEventHandler(this.panel1_MouseDown);
-            this.panel1.MouseMove += new MouseEventHandler(this.panel1_MouseMove);
-            this.panel1.MouseUp += new MouseEventHandler(this.panel1_MouseUp);
-            this.label_title.MouseDown += new MouseEventHandler(this.panel1_MouseDown);
-            this.label_title.MouseMove += new MouseEventHandler(this.panel1_MouseMove);
-            this.label_title.MouseUp += new MouseEventHandler(this.panel1_MouseUp);
+            panel1.MouseDown += new MouseEventHandler(panel1_MouseDown);
+            panel1.MouseMove += new MouseEventHandler(panel1_MouseMove);
+            panel1.MouseUp += new MouseEventHandler(panel1_MouseUp);
+            label_title.MouseDown += new MouseEventHandler(panel1_MouseDown);
+            label_title.MouseMove += new MouseEventHandler(panel1_MouseMove);
+            label_title.MouseUp += new MouseEventHandler(panel1_MouseUp);
 
             //ツールバーの位置調整
-            this.toolStrip1.Location = new Point(0, 0);
+            toolStrip1.Location = new Point(0, 0);
 
-            this.button_close.Height = this.toolStrip1.Height;
-            this.button_close.Width = this.toolStrip1.Height * 2;
-            this.button_close.Location = new Point(this.toolStrip1.Width - 1, 0);
-            this.button_close.BringToFront();
+            button_close.Height = toolStrip1.Height;
+            button_close.Width = toolStrip1.Height * 2;
+            button_close.Location = new Point(toolStrip1.Width - 1, 0);
+            button_close.BringToFront();
 
-            this.panel_inner.Height = this.toolStrip1.Height;
-            this.panel_inner.Width = this.toolStrip1.Width + this.button_close.Width;
-            this.panel_inner.Location = new Point(0, barsize);
-            this.panel1.Height = this.panel_inner.Height + barsize;
-            this.panel1.Width = this.panel_inner.Width;
-            this.panel1.BackColor = Color.White;
+            panel_inner.Height = toolStrip1.Height;
+            panel_inner.Width = toolStrip1.Width + button_close.Width;
+            panel_inner.Location = new Point(0, barsize);
+            panel1.Height = panel_inner.Height + barsize;
+            panel1.Width = panel_inner.Width;
+            panel1.BackColor = Color.White;
 
             int display_h = Screen.GetBounds(this).Height;
             int display_w = Screen.GetBounds(this).Width;
 
-            if (this.起動時に画面をポーズするToolStripMenuItem.Checked)
+            if (起動時に画面をポーズするToolStripMenuItem.Checked)
             {
                 //デスクトップキャプチャイメージで初期化
                 Bitmap bmp = new Bitmap(display_w, display_h);
@@ -306,16 +307,16 @@ namespace SaisokuFreehand
             idx = idxmax();
             init();
 
-            this.ActiveControl = this.picbox;
+            ActiveControl = picbox;
 
             //位置決めと設定保存
-            if (pos_x >= display_w - this.panel1.Width)
+            if (pos_x >= display_w - panel1.Width)
             {
-                pos_x = display_w - this.panel1.Width;
+                pos_x = display_w - panel1.Width;
             }
-            if (pos_y >= display_h - this.panel1.Height)
+            if (pos_y >= display_h - panel1.Height)
             {
-                pos_y = display_h - this.panel1.Height;
+                pos_y = display_h - panel1.Height;
             }
             if (pos_x < 0)
             {
@@ -325,7 +326,7 @@ namespace SaisokuFreehand
             {
                 pos_y = 0;
             }
-            this.panel1.Location = new Point(pos_x, pos_y);
+            panel1.Location = new Point(pos_x, pos_y);
             iniFile.SetKeyValueInt("Soft", "Top", pos_x);
             iniFile.SetKeyValueInt("Soft", "Left", pos_y);
         }
@@ -356,14 +357,14 @@ namespace SaisokuFreehand
         }
         private void TitlebarIconView(bool view)
         {
-            this.pictureBox_icon.Visible = view;
-            this.label_title.Left = view ? 29 : 5;
+            pictureBox_icon.Visible = view;
+            label_title.Left = view ? 29 : 5;
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            iniFile.SetKeyValueInt("Soft", "Top", this.panel1.Location.X);
-            iniFile.SetKeyValueInt("Soft", "Left", this.panel1.Location.Y);
+            iniFile.SetKeyValueInt("Soft", "Top", panel1.Location.X);
+            iniFile.SetKeyValueInt("Soft", "Left", panel1.Location.Y);
         }
 
         #endregion
@@ -509,7 +510,7 @@ namespace SaisokuFreehand
         }
         private void appmenu_show()
         {
-            Point p = this.panel1.PointToScreen(new Point(-1, barsize));
+            Point p = panel1.PointToScreen(new Point(-1, barsize));
             appmenu.Show(p);
         }
 
@@ -526,12 +527,12 @@ namespace SaisokuFreehand
         //Pictureboxイベント
         private void Picbox_MouseDown(object sender, MouseEventArgs e)//マウスDown
         {
-            if (this.ActiveControl != this.picbox)
+            if (ActiveControl != picbox)
             {
-                this.ActiveControl = this.picbox;
+                ActiveControl = picbox;
             }
 
-            if (!this.toolStripButton_camera.Checked && (toolStripButton_text.Checked || toolStripButton_textwaku.Checked))
+            if (!toolStripButton_camera.Checked && (toolStripButton_text.Checked || toolStripButton_textwaku.Checked))
             {
                 jikkou = false;
                 return;
@@ -607,7 +608,7 @@ namespace SaisokuFreehand
         }
         private void Picbox_MouseUp(object sender, MouseEventArgs e)//マウスUp
         {
-            if (!this.toolStripButton_camera.Checked && (toolStripButton_text.Checked || toolStripButton_textwaku.Checked))
+            if (!toolStripButton_camera.Checked && (toolStripButton_text.Checked || toolStripButton_textwaku.Checked))
             {
                 if (e.Button == MouseButtons.Left && (Control.MouseButtons & MouseButtons.Left) != MouseButtons.Left && (Control.MouseButtons & MouseButtons.Right) != MouseButtons.Right)
                 {
@@ -636,8 +637,8 @@ namespace SaisokuFreehand
                         Point p4 = new Point();
                         square_point(p1, new Point(e.X, e.Y), ref p4);
 
-                        p1 = this.PointToScreen(p1);
-                        p4 = this.PointToScreen(p4);
+                        p1 = PointToScreen(p1);
+                        p4 = PointToScreen(p4);
 
                         Point p2 = new Point(p4.X, p1.Y);
                         Point p3 = new Point(p1.X, p4.Y);
@@ -691,13 +692,13 @@ namespace SaisokuFreehand
                                 Clipboard.SetImage(bmp);
 
                                 //画像を保存
-                                if (this.画像を自動保存するToolStripMenuItem.Checked)
+                                if (画像を自動保存するToolStripMenuItem.Checked)
                                 {
-                                    if (!System.IO.Directory.Exists(imagefolder))
+                                    if (!Directory.Exists(imagefolder))
                                     {
                                         try
                                         {
-                                            System.IO.DirectoryInfo di = System.IO.Directory.CreateDirectory(imagefolder);
+                                            DirectoryInfo di = Directory.CreateDirectory(imagefolder);
                                         }
                                         catch (Exception)
                                         {
@@ -705,7 +706,7 @@ namespace SaisokuFreehand
                                         }
                                     }
 
-                                    if (System.IO.Directory.Exists(imagefolder))
+                                    if (Directory.Exists(imagefolder))
                                     {
                                         if (saveformat == "png" || saveformat == "jpg" || saveformat == "bmp")
                                         {
@@ -737,14 +738,14 @@ namespace SaisokuFreehand
                                 bmp.Dispose();
 
                                 //キャプチャ後終了
-                                if (this.画面をキャプチャしたら終了するToolStripMenuItem.Checked)
+                                if (画面をキャプチャしたら終了するToolStripMenuItem.Checked)
                                 {
                                     Application.Exit();
                                 }
 
-                                this.toolStripButton_camera.Image = Properties.Resources.camera_on.ToBitmap();
+                                toolStripButton_camera.Image = Properties.Resources.camera_on.ToBitmap();
                                 camera_count = 0;
-                                this.timer1.Enabled = true;
+                                timer1.Enabled = true;
                             }
                             catch (Exception)
                             {
@@ -858,7 +859,7 @@ namespace SaisokuFreehand
             if (camera_count >= 2)
             {
                 timer1.Enabled = false;
-                this.toolStripButton_camera.Image = Properties.Resources.camera.ToBitmap();
+                toolStripButton_camera.Image = Properties.Resources.camera.ToBitmap();
                 camera_count = 0;
             }
         }
@@ -1041,7 +1042,7 @@ namespace SaisokuFreehand
         {
             if (p2.X != p1.X)
             {
-                double k = ((double)(p2.Y) - (double)(p1.Y)) / ((double)(p2.X) - (double)(p1.X));
+                double k = ((double)p2.Y - (double)p1.Y) / ((double)p2.X - (double)p1.X);
                 double shita = Math.Atan(k);
                 double shita1 = shita + kakudo / 180.0 * Math.PI;
                 double shita2 = shita - kakudo / 180.0 * Math.PI;
@@ -1077,7 +1078,7 @@ namespace SaisokuFreehand
         {
             if (p1.X != p2.X && p1.Y != p2.Y && (Control.ModifierKeys & Keys.Shift) == Keys.Shift)
             {
-                double k = Math.Abs((double)(p2.Y) - (double)(p1.Y)) / Math.Abs((double)(p2.X) - (double)(p1.X));
+                double k = Math.Abs((double)p2.Y - (double)p1.Y) / Math.Abs((double)p2.X - (double)p1.X);
                 double shita = Math.Atan(k);
 
                 if (shita <= Math.PI * 1.0 / 8.0)
@@ -1183,7 +1184,7 @@ namespace SaisokuFreehand
             int offsetX = mp.X - lastMousePosition.X;
             int offsetY = mp.Y - lastMousePosition.Y;
 
-            this.panel1.Location = new Point(this.panel1.Left + offsetX, this.panel1.Top + offsetY);
+            panel1.Location = new Point(panel1.Left + offsetX, panel1.Top + offsetY);
 
             lastMousePosition = mp;
         }
@@ -1201,16 +1202,16 @@ namespace SaisokuFreehand
         //ツールバーでのマウスのカーソル
         private void panel1_MouseEnter(object sender, EventArgs e)
         {
-            this.Cursor = Cursors.Default;
+            Cursor = Cursors.Default;
         }
 
         private void panel1_MouseHover(object sender, EventArgs e)
         {
-            this.Cursor = Cursors.Default;
+            Cursor = Cursors.Default;
         }
         private void panel1_MouseLeave(object sender, EventArgs e)
         {
-            this.Cursor = this.toolStripButton_camera.Checked ? Cursors.Cross : Cursors.Default;
+            Cursor = toolStripButton_camera.Checked ? Cursors.Cross : Cursors.Default;
         }
 
         //カメラ
@@ -1223,7 +1224,7 @@ namespace SaisokuFreehand
         private void camera_off()
         {
             toolStripButton_camera.Checked = false;
-            this.Cursor = Cursors.Default;
+            Cursor = Cursors.Default;
         }
         private void toolStripSplitButton_keshigomu_ButtonClick(object sender, EventArgs e)
         {
@@ -1256,11 +1257,11 @@ namespace SaisokuFreehand
             for (; keizoku;)
             {
                 keizoku = false;
-                foreach (Control c in this.picbox.Controls)
+                foreach (Control c in picbox.Controls)
                 {
                     if (c is label_Panel)
                     {
-                        this.picbox.Controls.Remove(c);
+                        picbox.Controls.Remove(c);
                         keizoku = true;
                         break;
                     }
@@ -1445,7 +1446,7 @@ namespace SaisokuFreehand
         private void textinputfunc()
         {
             //現在テキスト編集中であれば追加しない
-            foreach (var c in this.picbox.Controls)
+            foreach (var c in picbox.Controls)
             {
                 if (c is label_Panel)
                 {
@@ -1457,10 +1458,10 @@ namespace SaisokuFreehand
                 }
             }
 
-            label_Panel lp = new label_Panel(pencolor, penbold, this.toolStripButton_textwaku.Checked, this.picbox, this.起動時に画面をポーズするToolStripMenuItem.Checked);
-            this.picbox.Controls.Add(lp);
+            label_Panel lp = new label_Panel(pencolor, penbold, toolStripButton_textwaku.Checked, picbox, 起動時に画面をポーズするToolStripMenuItem.Checked);
+            picbox.Controls.Add(lp);
             lp.BringToFront();
-            this.panel1.BringToFront();
+            panel1.BringToFront();
         }
 
         public class label_Panel : Panel
@@ -1480,25 +1481,24 @@ namespace SaisokuFreehand
             public label_Panel(Color _color, int _bold, bool _waku, PictureBox _pic, bool wakumenu)
             {
                 //代入
-                this.color = _color;
-                this.bold = _bold;
-                this.waku = _waku;
-                this.pic = _pic;
+                color = _color;
+                bold = _bold;
+                waku = _waku;
+                pic = _pic;
 
                 //色
-                this.backcolor = this.color == Color.Yellow ? Color.FromArgb(100, 100, 100) : Color.White;
+                backcolor = color == Color.Yellow ? Color.FromArgb(100, 100, 100) : Color.White;
 
                 //ラベルサイズ
-                this.size = 14;
-                if (bold == 1) { this.size = 10; }
-                if (bold == 3) { this.size = 14; }
-                if (bold == 5) { this.size = 22; }
+                size = 14;
+                if (bold == 1) { size = 10; }
+                if (bold == 3) { size = 14; }
+                if (bold == 5) { size = 22; }
 
                 //ラベルのコンテキストメニューの作成
                 ContextMenuStrip cms = new ContextMenuStrip();
 
-                ToolStripMenuItem menu1 = new ToolStripMenuItem();
-                menu1.Text = "削除";
+                ToolStripMenuItem menu1 = new ToolStripMenuItem { Text = "削除" };
                 menu1.Click += contextMenuStrip_DeleteClick;
                 cms.Items.Add(menu1);
 
@@ -1507,8 +1507,7 @@ namespace SaisokuFreehand
 
                 if (wakumenu)
                 {
-                    ToolStripMenuItem menu2 = new ToolStripMenuItem();
-                    menu2.Text = "枠で囲う";
+                    ToolStripMenuItem menu2 = new ToolStripMenuItem { Text = "枠で囲う" };
                     menu2.Click += contextMenuStrip_WakuClick;
                     cms.Items.Add(menu2);
 
@@ -1520,9 +1519,11 @@ namespace SaisokuFreehand
 
                 foreach (int fsize in fontsize_arr)
                 {
-                    ToolStripMenuItem fmenu = new ToolStripMenuItem();
-                    fmenu.Text = fsize.ToString();
-                    fmenu.Name = "fsize" + fsize.ToString();
+                    ToolStripMenuItem fmenu = new ToolStripMenuItem
+                    {
+                        Text = fsize.ToString(),
+                        Name = "fsize" + fsize.ToString()
+                    };
                     fmenu.Click += contextMenuStrip_FontSizeClick;
                     cms.Items.Add(fmenu);
                 }
@@ -1530,45 +1531,48 @@ namespace SaisokuFreehand
                 cms.Opening += contextMenuStrip_MenuOpening;
 
                 //ラベル作成
-                this.label = new Label();
-                this.label.Text = initext;
-                this.label.Font = new Font(SystemFonts.MenuFont.Name, this.size);
-                this.label.AutoSize = true;
-                this.label.Visible = true;
-                this.label.ForeColor = this.color;
-                this.label.BackColor = this.waku ? this.backcolor : Color.Transparent;
-                this.label.Location = new Point(this.waku ? bold : 0, this.waku ? bold : 0);
-
-                this.label.ContextMenuStrip = cms;
-                this.label.MouseDown += new MouseEventHandler(this.control_MouseDown);
-                this.label.MouseMove += new MouseEventHandler(this.control_MouseMove);
-                this.label.MouseDoubleClick += new MouseEventHandler(this.control_MouseDoubleClick);
+                label = new Label
+                {
+                    Text = initext,
+                    Font = new Font(SystemFonts.MenuFont.Name, size),
+                    AutoSize = true,
+                    Visible = true,
+                    ForeColor = color,
+                    BackColor = waku ? backcolor : Color.Transparent,
+                    Location = new Point(waku ? bold : 0, waku ? bold : 0),
+                    ContextMenuStrip = cms
+                };
+                label.MouseDown += new MouseEventHandler(control_MouseDown);
+                label.MouseMove += new MouseEventHandler(control_MouseMove);
+                label.MouseDoubleClick += new MouseEventHandler(control_MouseDoubleClick);
 
                 //テキストボックス作成
-                this.textBox = new TextBox();
-                this.textBox.BorderStyle = BorderStyle.None;
-                this.textBox.ForeColor = this.label.ForeColor;
-                this.textBox.BackColor = this.backcolor;
-                this.textBox.Font = this.label.Font;
-                this.textBox.Location = this.label.Location;
-                this.textBox.Visible = false;
-                this.textBox.KeyDown += new KeyEventHandler(this.textBox_KeyDown);
-                this.textBox.Leave += new EventHandler(this.textBox_Leave);
-                this.textBox.TextChanged += new EventHandler(this.textBox_TextChanged);
+                textBox = new TextBox
+                {
+                    BorderStyle = BorderStyle.None,
+                    ForeColor = label.ForeColor,
+                    BackColor = backcolor,
+                    Font = label.Font,
+                    Location = label.Location,
+                    Visible = false
+                };
+                textBox.KeyDown += new KeyEventHandler(textBox_KeyDown);
+                textBox.Leave += new EventHandler(textBox_Leave);
+                textBox.TextChanged += new EventHandler(textBox_TextChanged);
 
                 //コントロールの追加
-                this.Controls.Add(this.label);
-                this.Controls.Add(this.textBox);
+                Controls.Add(label);
+                Controls.Add(textBox);
 
                 //パネル
-                this.MouseDown += new MouseEventHandler(this.control_MouseDown);
-                this.MouseMove += new MouseEventHandler(this.control_MouseMove);
-                this.MouseDoubleClick += new MouseEventHandler(this.control_MouseDoubleClick);
-                this.Leave += new EventHandler(this.panel_Leave);
-                this.BackColor = this.waku ? this.color : Color.Transparent;
-                this.Width = this.label.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.label.Height + (this.waku ? this.bold * 2 : 0);
-                this.Location = pic.PointToClient(Cursor.Position);
+                MouseDown += new MouseEventHandler(control_MouseDown);
+                MouseMove += new MouseEventHandler(control_MouseMove);
+                MouseDoubleClick += new MouseEventHandler(control_MouseDoubleClick);
+                Leave += new EventHandler(panel_Leave);
+                BackColor = waku ? color : Color.Transparent;
+                Width = label.Width + (waku ? bold * 2 : 0);
+                Height = label.Height + (waku ? bold * 2 : 0);
+                Location = pic.PointToClient(Cursor.Position);
             }
 
             //コンテキストメニュー
@@ -1583,22 +1587,22 @@ namespace SaisokuFreehand
                 waku = !menu.Checked;
 
                 //色設定の変更
-                this.label.BackColor = this.waku ? this.backcolor : Color.Transparent;
-                this.BackColor = this.waku ? this.color : Color.Transparent;
+                label.BackColor = waku ? backcolor : Color.Transparent;
+                BackColor = waku ? color : Color.Transparent;
 
                 //サイズ変更
-                this.Width = this.label.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.label.Height + (this.waku ? this.bold * 2 : 0);
+                Width = label.Width + (waku ? bold * 2 : 0);
+                Height = label.Height + (waku ? bold * 2 : 0);
 
                 //位置変更
-                this.label.Location = new Point(this.waku ? bold : 0, this.waku ? bold : 0);
+                label.Location = new Point(waku ? bold : 0, waku ? bold : 0);
                 if (waku)
                 {
-                    this.Location = new Point(this.Left - this.bold, this.Top - this.bold);
+                    Location = new Point(Left - bold, Top - bold);
                 }
                 else
                 {
-                    this.Location = new Point(this.Left + this.bold, this.Top + this.bold);
+                    Location = new Point(Left + bold, Top + bold);
                 }
             }
 
@@ -1608,7 +1612,7 @@ namespace SaisokuFreehand
                 ContextMenuStrip menu = (ContextMenuStrip)sender;
 
                 //現在のラベルのフォントサイズを取得
-                float size = this.label.Font.Size;
+                float size = label.Font.Size;
 
                 foreach (var item in menu.Items)
                 {
@@ -1618,7 +1622,7 @@ namespace SaisokuFreehand
                         if (((ToolStripMenuItem)item).Name.Contains("fsize"))
                         {
                             //現在のラベルのフォントサイズであればチェックを入れる
-                            if (((ToolStripMenuItem)item).Text == this.size.ToString())
+                            if (((ToolStripMenuItem)item).Text == size.ToString())
                             {
                                 ((ToolStripMenuItem)item).Checked = true;
                             }
@@ -1629,7 +1633,7 @@ namespace SaisokuFreehand
                         }
                         else if (((ToolStripMenuItem)item).Text.Contains("枠"))
                         {
-                            ((ToolStripMenuItem)item).Checked = this.waku;
+                            ((ToolStripMenuItem)item).Checked = waku;
                         }
                     }
                 }
@@ -1639,16 +1643,16 @@ namespace SaisokuFreehand
             private void contextMenuStrip_FontSizeClick(object sender, EventArgs e)
             {
                 //メニュー名
-                string menutext = ((ToolStripMenuItem)(sender)).Text;
+                string menutext = ((ToolStripMenuItem)sender).Text;
 
                 //メニュー名を数字に
-                this.size = int.Parse(menutext);
+                size = int.Parse(menutext);
 
                 //フォントサイズ変更
-                this.label.Font = new Font(SystemFonts.MenuFont.Name, this.size);
+                label.Font = new Font(SystemFonts.MenuFont.Name, size);
 
-                this.Width = this.label.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.label.Height + (this.waku ? this.bold * 2 : 0);
+                Width = label.Width + (waku ? bold * 2 : 0);
+                Height = label.Height + (waku ? bold * 2 : 0);
             }
 
             //マウスで位置を変更
@@ -1662,92 +1666,98 @@ namespace SaisokuFreehand
                 {
                     x_mouse = Cursor.Position.X;
                     y_mouse = Cursor.Position.Y;
-                    x_down = this.Left;
-                    y_down = this.Top;
+                    x_down = Left;
+                    y_down = Top;
                 }
             }
             private void control_MouseMove(object sender, MouseEventArgs e)
             {
                 if (e.Button == MouseButtons.Left)
                 {
-                    this.Left = x_down + (Cursor.Position.X - x_mouse);
-                    this.Top = y_down + (Cursor.Position.Y - y_mouse);
+                    Left = x_down + (Cursor.Position.X - x_mouse);
+                    Top = y_down + (Cursor.Position.Y - y_mouse);
                 }
             }
 
             //マウスダブルクリックで編集
             private void control_MouseDoubleClick(object sender, MouseEventArgs e)
             {
-                this.textBox.Multiline = true;
-                this.textBox.Text = this.label.Text;
-                this.textBox.Font = new Font(this.label.Font, FontStyle.Underline);
-                this.textBox.Height = this.label.Height;
-                this.textBox.Width = this.label.Width + 50;
-                this.textBox.Location = this.label.Location;
-                this.textBox.ImeMode = ImeMode.NoControl;
-                this.textBox.Visible = true;
-                this.label.Visible = false;
+                textBox.Multiline = true;
+                textBox.Text = label.Text;
+                textBox.Font = new Font(label.Font, FontStyle.Underline);
+                textBox.Height = label.Height;
+                textBox.Width = label.Width + 50;
+                textBox.Location = label.Location;
+                textBox.ImeMode = ImeMode.NoControl;
+                textBox.Visible = true;
+                label.Visible = false;
 
-                this.Width = this.textBox.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.textBox.Height + (this.waku ? this.bold * 2 : 0);
+                Width = textBox.Width + (waku ? bold * 2 : 0);
+                Height = textBox.Height + (waku ? bold * 2 : 0);
 
-                this.textBox.Focus();
-                this.textBox.Select(0, 0);
-                this.textBox.Select(this.textBox.Text.Length, 0);
+                textBox.Focus();
+                textBox.Select(0, 0);
+                textBox.Select(textBox.Text.Length, 0);
 
-                if (this.textBox.Text == this.initext)
+                if (textBox.Text == initext)
                 {
-                    this.textBox.SelectAll();
+                    textBox.SelectAll();
                 }
 
-                this.input_now = true;
+                input_now = true;
             }
 
             //テキスト編集中にリアルタイムでサイズ変更
             private void textBox_TextChanged(object sender, EventArgs e)
             {
                 //サイズ判定用ラベル
-                Label dummy = new Label();
-                dummy.Visible = false;
-                dummy.Font = this.textBox.Font;
-                dummy.Text = this.textBox.Text;
-                dummy.AutoSize = true;
-                this.Controls.Add(dummy);
+                Label dummy = new Label
+                {
+                    Visible = false,
+                    Font = textBox.Font,
+                    Text = textBox.Text,
+                    AutoSize = true
+                };
+                Controls.Add(dummy);
 
                 //高さ差異確認用ラベル
-                Label dummy2 = new Label();
-                dummy2.Visible = false;
-                dummy2.Font = this.textBox.Font;
-                dummy2.AutoSize = true;
-                dummy2.Text = "A";
-                this.Controls.Add(dummy2);
+                Label dummy2 = new Label
+                {
+                    Visible = false,
+                    Font = textBox.Font,
+                    AutoSize = true,
+                    Text = "A"
+                };
+                Controls.Add(dummy2);
 
                 //高さ差異確認用テキストボックス
-                TextBox dummy3 = new TextBox();
-                dummy3.Visible = false;
-                dummy3.Font = this.textBox.Font;
-                dummy3.BorderStyle = this.textBox.BorderStyle;
-                dummy3.Text = "A";
-                this.Controls.Add(dummy3);
+                TextBox dummy3 = new TextBox
+                {
+                    Visible = false,
+                    Font = textBox.Font,
+                    BorderStyle = textBox.BorderStyle,
+                    Text = "A"
+                };
+                Controls.Add(dummy3);
 
                 int diffh = dummy3.Height - dummy2.Height;
 
                 //改行補正
-                if (this.textBox.Text.EndsWith("\n"))
+                if (textBox.Text.EndsWith("\n"))
                 {
-                    dummy.Text = this.textBox.Text + "A";
+                    dummy.Text = textBox.Text + "A";
                 }
 
-                this.textBox.Width = dummy.Width + 50;
-                this.textBox.Height = dummy.Height + diffh;
+                textBox.Width = dummy.Width + 50;
+                textBox.Height = dummy.Height + diffh;
 
                 //コントロール削除
-                this.Controls.Remove(dummy);
-                this.Controls.Remove(dummy2);
-                this.Controls.Remove(dummy3);
+                Controls.Remove(dummy);
+                Controls.Remove(dummy2);
+                Controls.Remove(dummy3);
 
-                this.Width = this.textBox.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.textBox.Height + (this.waku ? this.bold * 2 : 0);
+                Width = textBox.Width + (waku ? bold * 2 : 0);
+                Height = textBox.Height + (waku ? bold * 2 : 0);
             }
 
             //Enterで確定、Escでキャンセル
@@ -1755,12 +1765,12 @@ namespace SaisokuFreehand
             {
                 if (e.KeyCode == Keys.Enter && (Control.ModifierKeys & Keys.Alt) == Keys.Alt)
                 {
-                    int idx = this.textBox.SelectionStart;
-                    string str = this.textBox.Text;
-                    this.textBox.Text = str.Substring(0, idx) + System.Environment.NewLine + (this.textBox.Text.Length == idx ? "" : str.Substring(idx));
-                    if (idx + System.Environment.NewLine.Length <= this.textBox.Text.Length)
+                    int idx = textBox.SelectionStart;
+                    string str = textBox.Text;
+                    textBox.Text = str.Substring(0, idx) + Environment.NewLine + (textBox.Text.Length == idx ? "" : str.Substring(idx));
+                    if (idx + Environment.NewLine.Length <= textBox.Text.Length)
                     {
-                        this.textBox.SelectionStart = idx + System.Environment.NewLine.Length;
+                        textBox.SelectionStart = idx + Environment.NewLine.Length;
                     }
                 }
                 else if (e.KeyCode == Keys.Enter)
@@ -1780,7 +1790,7 @@ namespace SaisokuFreehand
             }
             private void panel_Leave(object sender, EventArgs e)
             {
-                if (this.textBox.Visible)
+                if (textBox.Visible)
                 {
                     Label_kakikae(true, true);
                 }
@@ -1790,25 +1800,25 @@ namespace SaisokuFreehand
             {
                 if (kakikae)
                 {
-                    this.label.Text = this.textBox.Text;
+                    label.Text = textBox.Text;
                 }
 
                 //表示日表示切替
-                this.label.Visible = true;
-                this.textBox.Visible = false;
+                label.Visible = true;
+                textBox.Visible = false;
 
                 //サイズミニマム
-                this.textBox.Multiline = false;
-                this.textBox.Height = 1;
-                this.textBox.Width = 1;
+                textBox.Multiline = false;
+                textBox.Height = 1;
+                textBox.Width = 1;
 
                 //パネルサイズ変更
-                this.Width = this.label.Width + (this.waku ? this.bold * 2 : 0);
-                this.Height = this.label.Height + (this.waku ? this.bold * 2 : 0);
+                Width = label.Width + (waku ? bold * 2 : 0);
+                Height = label.Height + (waku ? bold * 2 : 0);
 
                 if (!nonactive)
                 {
-                    this.input_now = false;
+                    input_now = false;
                 }
             }
         }
@@ -1855,10 +1865,10 @@ namespace SaisokuFreehand
         {
             Dictionary<int, string> dic = new Dictionary<int, string> { { 0, "フリーハンド" }, { 1, "四角" }, { 2, "直線" }, { 3, "矢印" } };
 
-            this.フリーハンドToolStripMenuItem.Checked = false;
-            this.四角ToolStripMenuItem.Checked = false;
-            this.直線ToolStripMenuItem.Checked = false;
-            this.矢印ToolStripMenuItem.Checked = false;
+            フリーハンドToolStripMenuItem.Checked = false;
+            四角ToolStripMenuItem.Checked = false;
+            直線ToolStripMenuItem.Checked = false;
+            矢印ToolStripMenuItem.Checked = false;
 
             if (sender is ToolStripMenuItem)
             {
@@ -1878,9 +1888,9 @@ namespace SaisokuFreehand
         {
             Dictionary<int, string> dic = new Dictionary<int, string> { { 0, "小" }, { 1, "中" }, { 2, "大" } };
 
-            this.小ToolStripMenuItem.Checked = false;
-            this.中ToolStripMenuItem.Checked = false;
-            this.大ToolStripMenuItem.Checked = false;
+            小ToolStripMenuItem.Checked = false;
+            中ToolStripMenuItem.Checked = false;
+            大ToolStripMenuItem.Checked = false;
 
             if (sender is ToolStripMenuItem)
             {
@@ -1900,10 +1910,10 @@ namespace SaisokuFreehand
         {
             Dictionary<int, string> dic = new Dictionary<int, string> { { 0, "赤" }, { 1, "青" }, { 2, "黄" }, { 3, "緑" } };
 
-            this.赤ToolStripMenuItem.Checked = false;
-            this.青ToolStripMenuItem.Checked = false;
-            this.黄ToolStripMenuItem.Checked = false;
-            this.緑ToolStripMenuItem.Checked = false;
+            赤ToolStripMenuItem.Checked = false;
+            青ToolStripMenuItem.Checked = false;
+            黄ToolStripMenuItem.Checked = false;
+            緑ToolStripMenuItem.Checked = false;
 
             if (sender is ToolStripMenuItem)
             {
@@ -1923,9 +1933,9 @@ namespace SaisokuFreehand
         {
             Dictionary<int, string> dic = new Dictionary<int, string> { { 0, "png" }, { 1, "jpg" }, { 2, "bmp" } };
 
-            this.pNGToolStripMenuItem.Checked = false;
-            this.jPGToolStripMenuItem.Checked = false;
-            this.bMPToolStripMenuItem.Checked = false;
+            pNGToolStripMenuItem.Checked = false;
+            jPGToolStripMenuItem.Checked = false;
+            bMPToolStripMenuItem.Checked = false;
 
             if (sender is ToolStripMenuItem)
             {
@@ -1944,18 +1954,17 @@ namespace SaisokuFreehand
 
         private void タイトルバーにアイコンを表示するToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked = !this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked;
-            TitlebarIconView(this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
-            iniFile.SetKeyValueBool("Soft", "Icon", this.タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
+            タイトルバーにアイコンを表示するToolStripMenuItem.Checked = !タイトルバーにアイコンを表示するToolStripMenuItem.Checked;
+            TitlebarIconView(タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
+            iniFile.SetKeyValueBool("Soft", "Icon", タイトルバーにアイコンを表示するToolStripMenuItem.Checked);
         }
 
         private void historyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            this.historyToolStripMenuItem.Checked = !this.historyToolStripMenuItem.Checked;
-            iniFile.SetKeyValueBool("Soft", "History", this.historyToolStripMenuItem.Checked);
+            historyToolStripMenuItem.Checked = !historyToolStripMenuItem.Checked;
+            iniFile.SetKeyValueBool("Soft", "History", historyToolStripMenuItem.Checked);
         }
 
         #endregion
-
     }
 }
