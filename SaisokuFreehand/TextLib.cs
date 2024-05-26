@@ -1,4 +1,4 @@
-﻿//2023.12.03
+﻿//2024.05.26
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -489,6 +489,9 @@ namespace TextLib
         //iniファイルの読み込み
         private bool LoadIniFile()
         {
+            //初期化
+            _items = new Items();
+
             //対象ファイルが設定されていない場合
             if (_iniFilepath == "")
             {
@@ -596,6 +599,28 @@ namespace TextLib
         public static bool Write(string file, string allText)
         {
             return Write(file, allText, false, EncodeLib.GetJpEncoding(file) ?? EncodeLib.UTF8);
+        }
+
+        /// <summary>
+        /// テキストファイルへ文字列を書き込みます。上書き保存します。
+        /// </summary>
+        /// <param name="file">テキストファイルのフルパス</param>
+        /// <param name="allText">書き込む文字列</param>
+        /// <returns>正常に書き込みできた場合はtrue、それ以外はfalse</returns>
+        public static bool WriteOver(string file, string allText)
+        {
+            return Write(file, allText, false, EncodeLib.GetJpEncoding(file) ?? EncodeLib.UTF8);
+        }
+
+        /// <summary>
+        /// テキストファイルへ文字列を書き込みます。追加書き込みします。
+        /// </summary>
+        /// <param name="file">テキストファイルのフルパス</param>
+        /// <param name="allText">書き込む文字列</param>
+        /// <returns>正常に書き込みできた場合はtrue、それ以外はfalse</returns>
+        public static bool WriteAppend(string file, string allText)
+        {
+            return Write(file, allText, true, EncodeLib.GetJpEncoding(file) ?? EncodeLib.UTF8);
         }
 
         /// <summary>
