@@ -33,6 +33,6 @@ This software is released under the MIT License.
 
 ## その他
 
-[VirusTotal](https://www.virustotal.com/gui/home/upload)での[スキャン結果](https://www.virustotal.com/gui/file/65b6ec45653c616cc700b7657cde01e29e5a3e848a0ac672dd8415e9886fbb57)です。悪意のあるプログラムと判定されます。故意に作成しているわけではないため、問題ないとは思いますが、原因不明のため実際に問題がある可能性があります。  
+[VirusTotal](https://www.virustotal.com/gui/home/upload)での[スキャン結果](https://www.virustotal.com/gui/file/44a5af95fddc23e2118b69ade786a0ba0e0528d09a2610a0f5d469164293c083)です。悪意のあるプログラムと判定されます。故意に作成しているわけではないため、問題ないとは思いますが、原因不明のため実際に問題がある可能性があります。  
 
 ![scan](./html/scan.png)  
